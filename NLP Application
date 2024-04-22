@@ -1,0 +1,78 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.cluster import KMeans
+from sklearn.metrics import accuracy_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Embedding, LSTM, GRU
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+# Load the 20 Newsgroups dataset
+newsgroups = fetch_20newsgroups(subset='all', remove=('headers', 'footers', 'quotes'))
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(newsgroups.data, newsgroups.target, test_size=0.2, random_state=42)
+
+# Vectorize the text data
+vectorizer = TfidfVectorizer(max_features=1000)
+X_train_vec = vectorizer.fit_transform(X_train)
+X_test_vec = vectorizer.transform(X_test)
+
+# Train a Naive Bayes classifier
+nb_classifier = MultinomialNB()
+nb_classifier.fit(X_train_vec, y_train)
+
+# Predict and evaluate
+nb_predictions = nb_classifier.predict(X_test_vec)
+nb_accuracy = accuracy_score(y_test, nb_predictions)
+print(f"Naive Bayes Accuracy: {nb_accuracy}")
+
+# Train a K-Means clustering model
+kmeans = KMeans(n_clusters=20, random_state=42)
+kmeans.fit(X_train_vec.toarray())
+
+# Predict and evaluate
+kmeans_predictions = kmeans.predict(X_test_vec.toarray())
+kmeans_accuracy = accuracy_score(y_test, kmeans_predictions)
+print(f"K-Means Accuracy: {kmeans_accuracy}")
+
+# Tokenize and pad the text data for RNN
+tokenizer = Tokenizer(num_words=10000)
+tokenizer.fit_on_texts(X_train)
+X_train_seq = tokenizer.texts_to_sequences(X_train)
+X_test_seq = tokenizer.texts_to_sequences(X_test)
+X_train_pad = pad_sequences(X_train_seq, maxlen=100)
+X_test_pad = pad_sequences(X_test_seq, maxlen=100)
+
+# Define the RNN model
+rnn_model = Sequential()
+rnn_model.add(Embedding(10000, 128))
+rnn_model.add(LSTM(128))
+rnn_model.add(Dense(20, activation='softmax'))
+
+# Compile and train the RNN model
+rnn_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+history = rnn_model.fit(X_train_pad, y_train, epochs=5, validation_data=(X_test_pad, y_test))
+
+import matplotlib.pyplot as plt
+
+def plot_history(history):
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    axs[0].plot(history.history['accuracy'], label='Training Accuracy')
+    axs[0].plot(history.history['val_accuracy'], label='Validation Accuracy')
+    axs[0].set_title('Model Accuracy')
+    axs[0].legend()
+    axs[1].plot(history.history['loss'], label='Training Loss')
+    axs[1].plot(history.history['val_loss'], label='Validation Loss')
+    axs[1].set_title('Model Loss')
+    axs[1].legend()
+    plt.show()
+
+# Call the function after training the RNN model
+plot_history(rnn_model.fit(X_train_pad, y_train, epochs=5, validation_data=(X_test_pad, y_test)))
